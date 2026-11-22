@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% from "components/icons.html" import icon %}
+{% from "components/topbar.html" import app_topbar %}
+
+{% block title %}{{ campaign.name }} · Campaigns{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/campaigns.css') }}">
+  <script src="{{ url_for('static', filename='js/campaigns.js') }}" defer></script>
+{% endblock %}
+
+{% block body %}
+<div class="app-layout" id="app-layout">
+  {% include "components/sidebar.html" %}
+  <button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Close navigation" tabindex="-1"></button>
+  <div class="main-column">
+    {{ app_topbar("Campaigns") }}
+    <main class="campaign-main">
+      {% include "components/flashes.html" %}
+      <section class="page-heading campaign-heading" aria-labelledby="page-title">
+        <div><p class="eyebrow">CAMPAIGN DETAILS · #{{ campaign.id }}</p><h1 id="page-title">{{ campaign.name }}</h1><p class="page-subtitle">Campaign plan and saved audience snapshot.</p></div>
+        <div class="campaign-heading-actions">
+          <a class="button-secondary" href="{{ url_for('campaigns.index') }}">All campaigns</a>
+          <a class="button-primary" href="{{ url_for('campaigns.edit', campaign_id=campaign.id) }}">{{ icon("edit") }}<span>Edit campaign</span></a>
+          <form method="post" action="{{ url_for('campaigns.remove', campaign_id=campaign.id) }}" data-confirm-delete>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="button-danger" type="submit">Delete</button>
+          </form>
+        </div>
+      </section>
+
+      <div class="campaign-detail-grid">
+        <section class="campaign-panel panel" aria-labelledby="overview-heading">
+          <div class="campaign-panel-header">
+            <div><p class="panel-kicker">OVERVIEW</p><h2 id="overview-heading">Campaign summary</h2></div>
+            <span class="status-badge status-badge--{{ campaign.status }}">{{ campaign.status_label }}</span>
+          </div>
+          <dl class="campaign-meta-grid">
+            <div><dt>Subject</dt><dd>{{ campaign.subject }}</dd></div>
+            <div><dt>Saved email draft</dt><dd>{{ campaign.draft_name }}</dd></div>
+            <div><dt>Recipients</dt><dd>{{ campaign.recipient_count }}</dd></div>
+            <div><dt>Recipient groups</dt><dd>{% if campaign.recipient_group_names %}{{ campaign.recipient_group_names|join(", ") }}{% else %}Individual recipients{% endif %}</dd></div>
+            <div><dt>Schedule</dt><dd>{% if campaign.scheduled_at %}{{ campaign.scheduled_at.strftime("%b %d, %Y at %H:%M") }} {{ workspace_settings.timezone if workspace_settings else "UTC" }}{% else %}Not scheduled{% endif %}</dd></div>
+            <div><dt>Last updated</dt><dd>{{ campaign.updated_at.strftime("%b %d, %Y at %H:%M") if campaign.updated_at else "—" }}</dd></div>
+          </dl>
+          {% if campaign.status == "completed" %}<p class="campaign-explanation">Completed is a manual planning status. Actual send attempts and their recorded outcomes appear in the delivery history below.</p>{% endif %}
+        </section>
+
+        <section class="campaign-panel panel" aria-labelledby="content-heading">
+          <div class="campaign-panel-header"><div><p class="panel-kicker">SAVED CONTENT</p><h2 id="content-heading">Email preview</h2></div></div>
+          <iframe class="campaign-detail-preview" title="Saved campaign email preview" sandbox="" srcdoc="<!doctype html><html><head><meta charset=&quot;utf-8&quot;><meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot;><style>a{color:#00749A}</style></head><body style=&quot;font:14px/1.6 Arial,sans-serif;color:#1f2937;padding:20px;background:#fff&quot;>{{ safe_body_html|safe }}</body></html>"></iframe>
+        </section>
+
+        <section class="campaign-panel campaign-send-panel panel" aria-labelledby="campaign-send-heading">
+          <div class="campaign-panel-header">
+            <div><p class="panel-kicker">EXPLICIT DELIVERY</p><h2 id="campaign-send-heading">Campaign delivery</h2><p class="panel-description">A separate worker sends one Bcc message per recipient. SMTP acceptance does not confirm inbox delivery.</p></div>
+          </div>
+          {% if send_errors.get('send') %}<p class="campaign-explanation campaign-send-error">{{ send_errors.send }}</p>{% endif %}
+          {% if send_errors.get('audience') %}<p class="campaign-explanation campaign-send-error">{{ send_errors.audience }}</p>{% endif %}
+          {% if send_errors.get('consent') %}<p class="campaign-explanation campaign-send-error">{{ send_errors.consent }}</p>{% endif %}
+          {% if campaign.status == 'ready' and campaign_has_send %}
+            <p class="campaign-send-state">A job or send attempt already exists. Review the recipient execution table below before taking further action.</p>
+          {% elif campaign.status == 'ready' and campaign.recipient_count > 100 %}
+            <p class="campaign-send-state">This campaign has {{ campaign.recipient_count }} recipients. A job is limited to 100 recipients; narrow the audience and save the campaign again.</p>
+          {% elif campaign.status == 'ready' %}
+            <form class="campaign-send-form" method="post" action="{{ url_for('campaigns.send', campaign_id=campaign.id) }}" data-campaign-send>
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="submission_key" value="{{ send_key }}">
+              <label class="campaign-send-consent"><input type="checkbox" name="consent_confirmed" value="1" required> I confirm the selected recipients consented and authorize this immediate send.</label>
+              <button class="button-primary" type="submit" data-send-button>{{ icon("send") }}<span>Queue {{ campaign.recipient_count }} recipients</span></button>
+              {% if not smtp_configured %}<p class="field-hint">Gmail SMTP is not configured in <a href="{{ url_for('settings.index') }}">Settings</a>. Queuing will stay blocked until it is configured.</p>{% endif %}
+            </form>
+          {% elif campaign.status == 'scheduled' and not campaign_has_send %}
+            <p class="campaign-send-state">Scheduled campaigns do not send until you explicitly authorize this saved schedule. Older schedules require the same confirmation.</p>
+            <form class="campaign-send-form" method="post" action="{{ url_for('campaigns.authorize_schedule', campaign_id=campaign.id) }}" data-campaign-send>
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <label class="campaign-send-consent"><input type="checkbox" name="consent_confirmed" value="1" required> I authorize automatic sending at the displayed schedule and confirm recipient consent.</label>
+              <button class="button-primary" type="submit" data-send-button>{{ icon("send") }}<span>Authorize scheduled send</span></button>
+            </form>
+          {% else %}
+            <p class="campaign-send-state">Change this campaign to Ready for an immediate send or Scheduled to authorize a specific time.</p>
+          {% endif %}
+          {% if jobs %}
+            <div class="campaign-send-history"><h3>Persistent worker jobs</h3><ul class="send-history-list">{% for job in jobs %}{% set counts = campaign_job_summary(job) %}<li class="send-history-item"><span class="send-history-status send-history-status--{{ job.status }}">{{ job.status|title }}</span><span class="send-history-copy"><strong>{{ job.kind|title }} · {{ counts.accepted }} SMTP accepted · {{ counts.suppressed }} suppressed</strong><small>Due {{ job.scheduled_for.strftime('%b %d, %Y %H:%M UTC') }} · {{ job.total_recipients }} selected recipients</small>{% if job.error_details %}<small class="send-history-error">{{ job.error_details }}</small>{% endif %}</span></li>{% endfor %}</ul></div>
+            {% if jobs[0].deliveries %}<div class="campaign-send-history"><h3>Most recent recipient outcomes</h3><div class="campaign-table-scroll"><table class="campaigns-table"><thead><tr><th scope="col">Recipient</th><th scope="col">Outcome</th><th scope="col">Attempts</th><th scope="col">Last update</th><th scope="col">Details</th></tr></thead><tbody>{% for delivery in jobs[0].deliveries %}<tr><td>{{ delivery.email }}</td><td>{{ delivery.status|replace('_', ' ')|title }}</td><td>{{ delivery.attempt_count }}</td><td>{{ delivery.updated_at.strftime('%b %d, %H:%M UTC') }}</td><td>{{ delivery.error_details or '—' }}</td></tr>{% endfor %}</tbody></table></div></div>{% endif %}
+          {% endif %}
+          <div class="campaign-send-history">
+            <h3>Send history</h3>
+            {% if send_history %}
+              <ul class="send-history-list">
+                {% for item in send_history %}
+                  <li class="send-history-item">
+                    <span class="send-history-status send-history-status--{{ item.status }}">{{ item.status_label }}</span>
+                    <span class="send-history-copy"><strong>{{ item.recipient_count }} recipient{{ 's' if item.recipient_count != 1 else '' }}</strong><small>{{ item.attempted_at.strftime('%b %d, %Y %H:%M UTC') }}</small>{% if item.error_details %}<small class="send-history-error">{{ item.error_details }}</small>{% endif %}</span>
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}<p class="send-history-empty">No campaign send attempts have been recorded.</p>{% endif %}
+          </div>
+        </section>
+
+        <section class="campaign-panel panel campaign-audience-detail" aria-labelledby="audience-heading">
+          <div class="campaign-panel-header"><div><p class="panel-kicker">AUDIENCE SNAPSHOT</p><h2 id="audience-heading">Selected recipients</h2><p class="panel-description">{{ campaign.recipient_count }} active contact{{ "s" if campaign.recipient_count != 1 else "" }} captured when this campaign was saved.</p></div></div>
+          {% if campaign.recipient_snapshot %}
+            <div class="campaign-table-scroll">
+              <table class="campaigns-table recipient-snapshot-table"><thead><tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Company</th></tr></thead><tbody>
+                {% for recipient in campaign.recipient_snapshot[:100] %}<tr><td>{{ recipient.name }}</td><td>{{ recipient.email }}</td><td>{{ recipient.company or "—" }}</td></tr>{% endfor %}
+              </tbody></table>
+            </div>
+            {% if campaign.recipient_count > 100 %}<p class="snapshot-limit-note">Showing the first 100 of {{ campaign.recipient_count }} recipients.</p>{% endif %}
+          {% else %}<p class="no-audience">No active recipients were in this campaign snapshot.</p>{% endif %}
+        </section>
+      </div>
+    </main>
+  </div>
+</div>
+{% endblock %}

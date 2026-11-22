@@ -1,0 +1,1 @@
+"""MailPilot application tests."""

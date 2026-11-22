@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "components/icons.html" import icon %}
+{% from "components/topbar.html" import app_topbar %}
+{% from "components/empty_state.html" import empty_state %}
+
+{% block title %}Recipient groups · Campaigns{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/campaigns.css') }}">
+  <script src="{{ url_for('static', filename='js/campaigns.js') }}" defer></script>
+{% endblock %}
+
+{% block body %}
+<div class="app-layout" id="app-layout">
+  {% include "components/sidebar.html" %}
+  <button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Close navigation" tabindex="-1"></button>
+  <div class="main-column">
+    {{ app_topbar("Campaigns") }}
+    <main class="campaign-main">
+      {% include "components/flashes.html" %}
+      <section class="page-heading campaign-heading" aria-labelledby="page-title">
+        <div><p class="eyebrow">AUDIENCE MANAGEMENT</p><h1 id="page-title">Recipient groups</h1><p class="page-subtitle">Save reusable sets of active contacts for your campaign audiences.</p></div>
+        <div class="campaign-heading-actions"><a class="button-secondary" href="{{ url_for('campaigns.index') }}">Back to campaigns</a><a class="button-primary" href="{{ url_for('campaigns.new_group') }}">{{ icon("users") }}<span>New group</span></a></div>
+      </section>
+      <section class="campaign-list-panel panel" aria-labelledby="groups-heading">
+        <div class="campaign-list-header"><div><p class="panel-kicker">SAVED AUDIENCES</p><h2 id="groups-heading">Your groups</h2><p class="panel-description">Group membership is resolved against currently active recipients when a campaign is saved.</p></div><span class="results-count">{{ groups|length }} groups</span></div>
+        {% if groups %}
+          <div class="campaign-table-scroll"><table class="campaigns-table"><thead><tr><th scope="col">Group</th><th scope="col">Active members</th><th scope="col">Updated</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead><tbody>
+            {% for group in groups %}<tr><td><strong>{{ group.name }}</strong></td><td><strong>{{ group_active_member_count(group) }}</strong><small>active recipients</small></td><td>{{ group.updated_at.strftime("%b %d, %Y") if group.updated_at else "—" }}</td><td class="group-actions"><a class="row-action" href="{{ url_for('campaigns.edit_group', group_id=group.id) }}">Edit</a><form method="post" action="{{ url_for('campaigns.remove_group', group_id=group.id) }}" data-confirm-delete><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="row-danger" type="submit">Delete</button></form></td></tr>{% endfor %}
+          </tbody></table></div>
+        {% else %}<div class="campaign-empty-state">{{ empty_state("users", "No recipient groups yet", "Create a group from your active saved contacts to reuse it in campaigns.", "") }}<a class="button-primary" href="{{ url_for('campaigns.new_group') }}">Create recipient group</a></div>{% endif %}
+      </section>
+    </main>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,19 @@
+# Local environments and secrets
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+
+# Runtime data and Python artifacts
+instance/
+__pycache__/
+*.py[cod]
+*.sqlite
+*.sqlite3
+
+# Test and editor artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+.vscode/

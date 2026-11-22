@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% from "components/icons.html" import icon %}
+{% from "components/topbar.html" import app_topbar %}
+{% from "components/empty_state.html" import empty_state %}
+
+{% block title %}Campaigns · MailPilot{% endblock %}
+
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/campaigns.css') }}">{% endblock %}
+
+{% block body %}
+<div class="app-layout" id="app-layout">
+  {% include "components/sidebar.html" %}
+  <button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Close navigation" tabindex="-1"></button>
+  <div class="main-column">
+    {{ app_topbar("Campaigns") }}
+    <main class="campaign-main">
+      {% include "components/flashes.html" %}
+      <section class="page-heading campaign-heading" aria-labelledby="page-title">
+        <div><p class="eyebrow">WORKSPACE</p><h1 id="page-title">Campaigns</h1><p class="page-subtitle">Plan and organize campaigns using saved email content and recipient audiences.</p></div>
+        <div class="campaign-heading-actions">
+          <a class="button-secondary" href="{{ url_for('campaigns.groups') }}">Recipient groups</a>
+          <a class="button-primary" href="{{ url_for('campaigns.new') }}">{{ icon("send") }}<span>New campaign</span></a>
+        </div>
+      </section>
+
+      <section class="campaign-summary-grid" aria-label="Campaign status summary">
+        <article class="campaign-summary-card"><span>Total campaigns</span><strong>{{ summary.total }}</strong><small>All saved campaigns</small></article>
+        <article class="campaign-summary-card"><span>Draft</span><strong>{{ summary.draft }}</strong><small>Still being prepared</small></article>
+        <article class="campaign-summary-card"><span>Scheduled</span><strong>{{ summary.scheduled }}</strong><small>Planned for later</small></article>
+        <article class="campaign-summary-card"><span>Ready</span><strong>{{ summary.ready }}</strong><small>Ready for future sending</small></article>
+        <article class="campaign-summary-card"><span>Completed</span><strong>{{ summary.completed }}</strong><small>Manually marked complete</small></article>
+      </section>
+
+      <section class="campaign-list-panel panel" aria-labelledby="campaign-list-heading">
+        <div class="campaign-list-header">
+          <div><p class="panel-kicker">CAMPAIGN LIBRARY</p><h2 id="campaign-list-heading">All campaigns</h2><p class="panel-description">Search, filter, review, and update your campaign plans.</p></div>
+          <span class="results-count">{{ pagination.total }} total</span>
+        </div>
+        <form class="campaign-filters" method="get" action="{{ url_for('campaigns.index') }}">
+          <label class="search-control"><span class="sr-only">Search campaigns</span><input type="search" name="q" value="{{ search }}" placeholder="Search campaign or subject"></label>
+          <label class="filter-control"><span class="sr-only">Filter campaign status</span><select name="status"><option value="all"{% if status == "all" %} selected{% endif %}>All statuses</option>{% for key, label in statuses.items() %}<option value="{{ key }}"{% if status == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+          <button class="button-secondary" type="submit">Apply filters</button>
+          {% if search or status != "all" %}<a class="clear-filters" href="{{ url_for('campaigns.index') }}">Clear</a>{% endif %}
+        </form>
+        {% if pagination.items %}
+          <div class="campaign-table-scroll">
+            <table class="campaigns-table">
+              <thead><tr><th scope="col">Campaign</th><th scope="col">Subject</th><th scope="col">Audience</th><th scope="col">Status</th><th scope="col">Schedule</th><th scope="col"><span class="sr-only">Open</span></th></tr></thead>
+              <tbody>
+                {% for campaign in pagination.items %}
+                  <tr>
+                    <td><a class="campaign-name-link" href="{{ url_for('campaigns.detail', campaign_id=campaign.id) }}">{{ campaign.name }}</a><small>{{ campaign.draft_name }}</small></td>
+                    <td>{{ campaign.subject }}</td>
+                    <td><strong>{{ campaign.recipient_count }}</strong><small>recipients</small></td>
+                    <td><span class="status-badge status-badge--{{ campaign.status }}">{{ campaign.status_label }}</span></td>
+                    <td>{% if campaign.scheduled_at %}{{ campaign.scheduled_at.strftime("%b %d, %Y · %H:%M") }}{% else %}<span class="muted-value">—</span>{% endif %}</td>
+                    <td><a class="row-action" href="{{ url_for('campaigns.detail', campaign_id=campaign.id) }}">View</a></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% if pagination.pages > 1 %}
+            <nav class="pagination" aria-label="Campaign pages">
+              <span>Page {{ pagination.page }} of {{ pagination.pages }}</span>
+              <div>{% if pagination.has_prev %}<a href="{{ url_for('campaigns.index', page=pagination.prev_num, q=search, status=status, per_page=per_page) }}">Previous</a>{% endif %}{% if pagination.has_next %}<a href="{{ url_for('campaigns.index', page=pagination.next_num, q=search, status=status, per_page=per_page) }}">Next</a>{% endif %}</div>
+            </nav>
+          {% endif %}
+        {% else %}
+          <div class="campaign-empty-state">{{ empty_state("send", "No campaigns found", "Create a campaign from a saved email draft, or adjust your search and filters.", "") }}<a class="button-primary" href="{{ url_for('campaigns.new') }}">Create campaign</a></div>
+        {% endif %}
+      </section>
+      <p class="campaign-footnote">Campaign statuses are planning records. MailPilot does not send email or report delivery results.</p>
+    </main>
+  </div>
+</div>
+{% endblock %}

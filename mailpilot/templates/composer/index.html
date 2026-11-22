@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% from "components/icons.html" import icon %}
+{% from "components/topbar.html" import app_topbar %}
+{% from "components/composer_fields.html" import recipient_field %}
+
+{% block title %}Email Composer · MailPilot{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/composer.css') }}">
+  <script src="{{ url_for('static', filename='js/composer.js') }}" defer></script>
+{% endblock %}
+
+{% block body %}
+<div class="app-layout" id="app-layout">
+  {% include "components/sidebar.html" %}
+  <button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Close navigation" tabindex="-1"></button>
+
+  <div class="main-column">
+    {{ app_topbar("Email Composer") }}
+    <main class="composer-main" id="composer-main" data-contacts-url="{{ url_for('composer.recipients') }}">
+      {% include "components/flashes.html" %}
+      <section class="page-heading composer-heading" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">MESSAGE WORKSPACE</p>
+          <h1 id="page-title">Email Composer</h1>
+          <p class="page-subtitle">Write and save polished email drafts for your campaigns.</p>
+        </div>
+        <div class="composer-heading-actions">
+          {% if draft %}
+            <form class="delete-draft-form" method="post" action="{{ url_for('composer.remove', draft_id=draft.id) }}" data-confirm-delete>
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="button-delete" type="submit">Delete draft</button>
+            </form>
+          {% endif %}
+          <a class="composer-new-link" href="{{ url_for('composer.index') }}">{{ icon("edit") }}<span>New draft</span></a>
+        </div>
+      </section>
+
+      <div class="composer-notice" role="note">
+        <span class="composer-notice-icon" aria-hidden="true">i</span>
+        <p><strong>Drafts stay local until you explicitly send.</strong> Sender profile labels are for display; delivered messages use the configured <code>MAIL_DEFAULT_SENDER</code> address.</p>
+      </div>
+
+      <div class="composer-layout">
+        <section class="composer-panel panel" aria-labelledby="message-heading">
+          <div class="composer-panel-header">
+            <div>
+              <p class="panel-kicker">{% if draft %}EDITING DRAFT #{{ draft.id }}{% else %}NEW MESSAGE{% endif %}</p>
+              <h2 id="message-heading">Compose your email</h2>
+            </div>
+            <span class="draft-state"><span class="draft-state-dot"></span>Draft</span>
+          </div>
+
+          <form id="composer-form" class="composer-form" method="post" action="{% if draft %}{{ url_for('composer.update', draft_id=draft.id) }}{% else %}{{ url_for('composer.create') }}{% endif %}" data-is-edit="{{ 'true' if draft else 'false' }}" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            {% if draft %}<input type="hidden" name="submission_key" value="{{ send_key }}">{% endif %}
+
+            <div class="composer-field sender-field{% if errors.get('sender_identity') %} has-error{% endif %}">
+              <label for="sender_identity">From</label>
+              <div class="sender-select-wrap">
+                <span class="sender-avatar" aria-hidden="true">MP</span>
+                <select id="sender_identity" name="sender_identity" aria-describedby="sender-help{% if errors.get('sender_identity') %} sender-error{% endif %}"{% if errors.get('sender_identity') %} aria-invalid="true"{% endif %}>
+                  {% for identity, label in sender_identities.items() %}
+                    <option value="{{ identity }}"{% if form_values.get('sender_identity') == identity %} selected{% endif %}>{% if identity == 'workspace' and settings.default_sender_name %}{{ settings.default_sender_name }}{% if settings.default_sender_email %} &lt;{{ settings.default_sender_email }}&gt;{% endif %}{% else %}{{ label }}{% endif %} · draft only</option>
+                  {% endfor %}
+                </select>
+                <span class="sender-connection">{{ 'SMTP sender configured' if smtp_configured else 'SMTP not configured' }}</span>
+              </div>
+              <span class="field-hint" id="sender-help">Choose a display label. Actual delivery uses MAIL_DEFAULT_SENDER from the server environment.</span>
+              {% if errors.get('sender_identity') %}<span class="field-error" id="sender-error">{{ errors.sender_identity }}</span>{% endif %}
+            </div>
+
+            {{ recipient_field("To", "to_recipients", form_values.get("to_recipients", ""), errors.get("to_recipients")) }}
+            {{ recipient_field("Cc", "cc_recipients", form_values.get("cc_recipients", ""), errors.get("cc_recipients")) }}
+            {{ recipient_field("Bcc", "bcc_recipients", form_values.get("bcc_recipients", ""), errors.get("bcc_recipients")) }}
+
+            <div class="contact-picker-row">
+              <span>Need a saved contact?</span>
+              <button class="text-button" type="button" id="open-contact-picker">Browse recipients</button>
+            </div>
+
+            <div class="composer-field subject-field{% if errors.get('subject') %} has-error{% endif %}">
+              <label for="subject">Subject</label>
+              <input id="subject" name="subject" type="text" maxlength="255" required aria-required="true" value="{{ form_values.get('subject', '') }}" placeholder="Add a clear subject line" aria-describedby="subject-help{% if errors.get('subject') %} subject-error{% endif %}"{% if errors.get('subject') %} aria-invalid="true"{% endif %}>
+              <span class="field-hint" id="subject-help">Required · up to 255 characters.</span>
+              {% if errors.get('subject') %}<span class="field-error" id="subject-error">{{ errors.subject }}</span>{% endif %}
+            </div>
+
+            <div class="editor-section{% if errors.get('body_html') %} has-error{% endif %}">
+              <div class="editor-label-row">
+                <label for="message-editor">Message</label>
+                <span class="editor-format-note">Rich text · HTML preview</span>
+              </div>
+              <div class="editor-toolbar" role="toolbar" aria-label="Message formatting">
+                <div class="toolbar-group" role="group" aria-label="Text style">
+                  <button class="toolbar-button toolbar-button--letter" type="button" data-command="bold" aria-pressed="false" aria-label="Bold" title="Bold"><strong>B</strong></button>
+                  <button class="toolbar-button toolbar-button--letter" type="button" data-command="italic" aria-pressed="false" aria-label="Italic" title="Italic"><em>I</em></button>
+                  <button class="toolbar-button toolbar-button--letter" type="button" data-command="underline" aria-pressed="false" aria-label="Underline" title="Underline"><u>U</u></button>
+                </div>
+                <span class="toolbar-divider" aria-hidden="true"></span>
+                <div class="toolbar-group" role="group" aria-label="Lists and links">
+                  <button class="toolbar-button" type="button" data-command="insertUnorderedList" aria-pressed="false" aria-label="Bulleted list" title="Bulleted list">☷</button>
+                  <button class="toolbar-button toolbar-button--number" type="button" data-command="insertOrderedList" aria-pressed="false" aria-label="Numbered list" title="Numbered list">1⁄2</button>
+                  <button class="toolbar-button" type="button" id="open-link-dialog" aria-label="Insert link" title="Insert link">↗</button>
+                </div>
+                <span class="toolbar-divider" aria-hidden="true"></span>
+                <div class="toolbar-group" role="group" aria-label="Text alignment">
+                  <button class="toolbar-button" type="button" data-command="justifyLeft" aria-pressed="false" aria-label="Align left" title="Align left">≡</button>
+                  <button class="toolbar-button" type="button" data-command="justifyCenter" aria-pressed="false" aria-label="Align center" title="Align center">≣</button>
+                  <button class="toolbar-button" type="button" data-command="justifyRight" aria-pressed="false" aria-label="Align right" title="Align right">≡</button>
+                </div>
+                <button class="preview-toggle" type="button" id="toggle-preview" aria-pressed="false">Preview</button>
+              </div>
+
+              <textarea class="editor-source" id="body-html" name="body_html" aria-hidden="true" tabindex="-1">{{ form_values.get('body_html', '') }}</textarea>
+              <div class="editor-stage">
+                <div class="message-editor" id="message-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-required="true" aria-label="Email message content" data-placeholder="Write your email here…">{{ preview_body|safe }}</div>
+                <iframe class="email-preview" id="email-preview" title="Email HTML preview" sandbox="" hidden srcdoc="<!doctype html><html><head><meta charset=&quot;utf-8&quot;><meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot;><style>a{color:#00749A}</style></head><body style=&quot;font-family:Arial,sans-serif;color:#1f2937;padding:24px;background:#fff&quot;>{{ preview_body|safe }}</body></html>"></iframe>
+              </div>
+              {% if errors.get('body_html') %}<span class="field-error" id="body-html-error">{{ errors.body_html }}</span>{% endif %}
+              <div class="editor-footer"><span>Formatting is saved as sanitized HTML.</span><span id="editor-count">0 characters</span></div>
+            </div>
+
+            {% if draft %}
+              <div class="send-consent-field{% if errors.get('consent') %} has-error{% endif %}">
+                <label><input type="checkbox" name="consent_confirmed" value="1"{% if form_values.get('consent_confirmed') %} checked{% endif %}> I confirm these recipients agreed to receive this message, and I will follow applicable email rules.</label>
+                <span class="field-hint">Maximum 100 unique recipients combined across To, Cc and Bcc.</span>
+                {% if errors.get('consent') %}<span class="field-error">{{ errors.consent }}</span>{% endif %}
+                {% if errors.get('send') %}<span class="field-error">{{ errors.send }}</span>{% endif %}
+                {% if draft_send_blocked %}<span class="field-error">A previous send is pending, partial, or uncertain. Check send history and the sender's Sent folder before retrying.</span>{% endif %}
+                {% if not smtp_configured %}<span class="field-hint">Configure Gmail SMTP in Settings before sending. Saving drafts remains available.</span>{% endif %}
+              </div>
+            {% endif %}
+            <div class="composer-form-footer">
+              <span class="save-feedback" id="save-feedback" aria-live="polite">{% if draft %}Saved draft opened. Choose Save changes after editing.{% else %}Save this message to keep it as a draft.{% endif %}</span>
+              <div class="composer-submit-actions">
+                {% if draft %}
+                  <button class="button-primary button-send" type="submit" formaction="{{ url_for('composer.send', draft_id=draft.id) }}" data-send-button{% if not smtp_configured or draft_send_blocked %} disabled{% endif %}>{{ icon("send") }}<span>Send email</span></button>
+                {% endif %}
+                <button class="{% if draft %}button-secondary{% else %}button-primary{% endif %}" type="submit">{{ icon("check") }}<span>{% if draft %}Save changes{% else %}Save draft{% endif %}</span></button>
+              </div>
+            </div>
+          </form>
+        </section>
+
+        <aside class="drafts-panel panel" aria-labelledby="drafts-heading">
+          <div class="drafts-panel-header">
+            <div>
+              <p class="panel-kicker">YOUR WORK</p>
+              <h2 id="drafts-heading">Saved drafts</h2>
+            </div>
+            <span class="draft-count">{{ drafts|length }}</span>
+          </div>
+          {% if drafts %}
+            <ul class="draft-list">
+              {% for saved_draft in drafts %}
+                <li>
+                  <a class="draft-list-item{% if draft and draft.id == saved_draft.id %} is-selected{% endif %}" href="{{ url_for('composer.edit', draft_id=saved_draft.id) }}"{% if draft and draft.id == saved_draft.id %} aria-current="page"{% endif %}>
+                    <span class="draft-item-icon">{{ icon("mail") }}</span>
+                    <span class="draft-item-copy">
+                      <strong>{{ saved_draft.subject or "Untitled draft" }}</strong>
+                      <span>{{ sender_label(saved_draft.sender_identity) }} · {{ saved_draft.updated_at.strftime("%b %d, %Y") if saved_draft.updated_at else "Recently saved" }}</span>
+                      <small>{% if saved_draft.to_recipients %}{{ saved_draft.to_recipients|length }} recipient{% if saved_draft.to_recipients|length != 1 %}s{% endif %}{% else %}No recipients yet{% endif %}</small>
+                    </span>
+                    <span class="draft-item-arrow" aria-hidden="true">›</span>
+                  </a>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <div class="drafts-empty">
+              <span class="drafts-empty-icon">{{ icon("mail") }}</span>
+              <h3>No saved drafts yet</h3>
+              <p>Saved messages will appear here so you can reopen and edit them.</p>
+            </div>
+          {% endif %}
+          <div class="drafts-panel-note"><span class="draft-state-dot"></span>Drafts are stored locally in your MailPilot database.</div>
+          <section class="send-history-section" aria-labelledby="send-history-heading">
+            <div class="send-history-heading"><p class="panel-kicker">DELIVERY LOG</p><h3 id="send-history-heading">Recent email activity</h3></div>
+            {% if send_history %}
+              <ul class="send-history-list">
+                {% for item in send_history %}
+                  <li class="send-history-item">
+                    <span class="send-history-status send-history-status--{{ item.status }}">{{ item.status_label }}</span>
+                    <span class="send-history-copy"><strong>{{ item.subject }}</strong><small>{{ item.recipient_count }} recipient{{ 's' if item.recipient_count != 1 else '' }} · {{ item.attempted_at.strftime('%b %d, %Y %H:%M UTC') }}</small>{% if item.error_details %}<small class="send-history-error">{{ item.error_details }}</small>{% endif %}</span>
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}<p class="send-history-empty">No email send attempts have been recorded.</p>{% endif %}
+          </section>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+
+<dialog class="composer-dialog" id="contact-dialog" aria-labelledby="contact-dialog-title">
+  <form method="dialog" class="dialog-header">
+    <div><p class="panel-kicker">SAVED CONTACTS</p><h2 id="contact-dialog-title">Add recipients</h2></div>
+    <button class="dialog-close" value="cancel" aria-label="Close contact picker">×</button>
+  </form>
+  <div class="contact-dialog-controls">
+    <label for="contact-search">Search active recipients</label>
+    <input id="contact-search" type="search" placeholder="Search by name, email or company" autocomplete="off">
+    <label for="contact-destination">Add contacts to</label>
+    <select id="contact-destination"><option value="to_recipients">To</option><option value="cc_recipients">Cc</option><option value="bcc_recipients">Bcc</option></select>
+  </div>
+  <div class="contact-results" id="contact-results" aria-live="polite"><p class="contact-results-message">Search your active saved recipients.</p></div>
+</dialog>
+
+<dialog class="composer-dialog link-dialog" id="link-dialog" aria-labelledby="link-dialog-title">
+  <form id="link-form">
+    <div class="dialog-header"><div><p class="panel-kicker">MESSAGE FORMATTING</p><h2 id="link-dialog-title">Insert a link</h2></div><button class="dialog-close" type="button" id="close-link-dialog" aria-label="Close link dialog">×</button></div>
+    <label for="link-url">Web address</label>
+    <input id="link-url" type="text" inputmode="url" placeholder="https://example.com or mailto:name@example.com" required>
+    <span class="field-hint">Only web and email links are kept in saved content.</span>
+    <div class="dialog-actions"><button class="button-secondary" type="button" id="cancel-link">Cancel</button><button class="button-primary" type="submit">Insert link</button></div>
+  </form>
+</dialog>
+{% endblock %}

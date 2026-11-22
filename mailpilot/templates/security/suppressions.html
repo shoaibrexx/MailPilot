@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "components/icons.html" import icon %}
+{% from "components/topbar.html" import app_topbar %}
+
+{% block title %}Suppressions · MailPilot{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/security.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">{% endblock %}
+{% block body %}
+<div class="app-layout" id="app-layout">
+  {% include "components/sidebar.html" %}
+  <button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Close navigation" tabindex="-1"></button>
+  <div class="main-column">
+    {{ app_topbar("Security") }}
+    <main class="dashboard-main security-main">
+      {% include "components/flashes.html" %}
+      <section class="page-heading"><div><p class="eyebrow">EMAIL CONSENT</p><h1>Suppressions</h1><p class="page-subtitle">Addresses here are excluded from campaign execution.</p></div><a class="button-secondary" href="{{ url_for('security.index') }}">Back to Security</a></section>
+      <section class="security-events panel">
+        <header class="security-events-header"><div><p class="panel-kicker">EXCLUSION LIST</p><h2>{{ counts.global }} global · {{ counts.campaign }} campaign</h2><p>Unsubscribes remain available after campaigns or recipients are deleted.</p></div></header>
+        <form class="settings-fields-grid" method="post" action="{{ url_for('security.add_suppression_route') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="settings-field"><label for="suppression-email">Email address</label><input id="suppression-email" name="email" type="email" maxlength="254" required autocomplete="email"></div>
+          <div class="settings-field"><label for="suppression-scope">Scope</label><select id="suppression-scope" name="scope"><option value="global">All campaigns</option><option value="campaign">One campaign</option></select></div>
+          <div class="settings-field"><label for="suppression-campaign">Campaign</label><select id="suppression-campaign" name="campaign_id"><option value="">Choose when scope is one campaign</option>{% for campaign in campaigns %}<option value="{{ campaign.id }}">{{ campaign.name }}</option>{% endfor %}</select></div>
+          <div class="settings-field"><button class="button-secondary" type="submit">Add suppression</button></div>
+        </form>
+        <form class="security-events-header" method="get" action="{{ url_for('security.suppressions') }}">
+          <div class="settings-field"><label for="suppression-search">Search address</label><input id="suppression-search" name="q" type="search" value="{{ search }}" maxlength="120"></div>
+          <div class="settings-field"><label for="suppression-filter">Scope</label><select id="suppression-filter" name="scope"><option value="all"{% if scope == 'all' %} selected{% endif %}>All scopes</option><option value="global"{% if scope == 'global' %} selected{% endif %}>All campaigns</option><option value="campaign"{% if scope == 'campaign' %} selected{% endif %}>One campaign</option></select></div>
+          <button class="button-secondary" type="submit">Filter</button>
+        </form>
+        {% if pagination.items %}<div class="table-wrap"><table class="security-event-table"><thead><tr><th>Email</th><th>Scope</th><th>Source</th><th>Added</th><th>Action</th></tr></thead><tbody>{% for item in pagination.items %}<tr><td><strong>{{ item.email }}</strong></td><td>{{ item.scope_label }}</td><td>{{ item.source|title }}</td><td>{{ item.created_at.strftime('%b %d, %Y %H:%M UTC') }}</td><td><form method="post" action="{{ url_for('security.delete_suppression_route', suppression_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button-secondary" type="submit" data-confirm="Remove this suppression? Future campaign sends may include the address again.">Remove</button></form></td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="security-events-empty empty-state"><h3>No matching suppression records</h3><p>Unsubscribes and manually added exclusions appear here.</p></div>{% endif %}
+        {% if pagination.pages > 1 %}<nav class="notification-pagination" aria-label="Suppression pages"><span>Page {{ pagination.page }} of {{ pagination.pages }}</span><div>{% if pagination.has_prev %}<a href="{{ url_for('security.suppressions', page=pagination.prev_num, q=search, scope=scope) }}">Previous</a>{% endif %}{% if pagination.has_next %}<a href="{{ url_for('security.suppressions', page=pagination.next_num, q=search, scope=scope) }}">Next</a>{% endif %}</div></nav>{% endif %}
+      </section>
+    </main>
+  </div>
+</div>
+{% endblock %}

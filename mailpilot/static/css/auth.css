@@ -1,0 +1,19 @@
+.auth-main { display: grid; min-height: 100vh; place-items: center; padding: 24px; background: var(--color-page); }
+.auth-card { width: min(100%, 440px); padding: 28px; }
+.auth-card h1 { margin: 0; color: var(--color-text); font-size: clamp(24px, 4vw, 32px); }
+.auth-card .page-subtitle { margin: 9px 0 20px; }
+.auth-form { display: grid; gap: 15px; }
+.auth-form .settings-field { display: grid; min-width: 0; gap: 6px; }
+.auth-form .settings-field > label { color: var(--color-muted); font-size: 10px; font-weight: 700; }
+.auth-form input:not([type="hidden"]) { width: 100%; min-height: 40px; padding: 9px 10px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-control); outline: 0; background: var(--color-input); color: var(--color-text); font: inherit; }
+.auth-form input:focus-visible { border-color: var(--color-accent); box-shadow: 0 0 0 3px var(--color-focus-ring); }
+.notification-preference-option { display: flex; min-width: 0; align-items: flex-start; gap: 9px; padding: 11px; border: 1px solid var(--color-border); border-radius: 9px; background: var(--color-surface-soft); color: var(--color-text); cursor: pointer; }
+.notification-preference-option > input { width: 16px; height: 16px; flex: 0 0 auto; margin: 2px 0 0; accent-color: var(--color-action); }
+.notification-preference-option > span { display: grid; gap: 3px; }
+.notification-preference-option strong { font-size: 11px; }
+.notification-preference-option small { color: var(--color-muted); font-size: 10px; line-height: 1.5; }
+.auth-form .button-primary { width: 100%; justify-content: center; }
+.auth-error { margin: 12px 0; padding: 11px 12px; border: 1px solid color-mix(in srgb, var(--color-danger) 30%, var(--color-border)); border-radius: 9px; background: var(--color-danger-soft); color: var(--color-danger); font-size: 13px; }
+.auth-setup-note { margin: 16px 0 0; padding: 12px; border-radius: 9px; background: var(--color-surface-soft); color: var(--color-muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.auth-setup-note code { color: var(--color-text); }
+@media (max-width: 540px) { .auth-main { padding: 16px; } .auth-card { padding: 21px; } }

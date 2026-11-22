@@ -1,0 +1,15 @@
+<div class="recipient-picker" data-recipient-picker data-search-url="{{ recipient_search_url }}" data-selected="{{ selected_recipients|tojson|forceescape }}">
+  <input class="recipient-picker-ids" type="hidden" name="{{ recipient_ids_name }}" value="{{ selected_recipients|map(attribute='id')|join(',') }}">
+  <label for="recipient-search">Search active recipients</label>
+  <div class="recipient-search-wrap">
+    <input class="recipient-search" id="recipient-search" type="search" placeholder="Search by name, email or company" autocomplete="off">
+    <span class="recipient-search-hint">Select one or more active contacts.</span>
+  </div>
+  {% if picker_error %}<span class="field-error">{{ picker_error }}</span>{% endif %}
+  <div class="recipient-search-results" aria-live="polite"><p class="recipient-picker-message">Search your saved recipients to add them.</p></div>
+  <div class="selected-recipient-list" aria-live="polite">
+    {% for recipient in selected_recipients %}
+      <span class="selected-recipient" data-selected-recipient="{{ recipient.id }}"><span>{{ recipient.name }} · {{ recipient.email }}</span><button type="button" aria-label="Remove {{ recipient.email }}">×</button></span>
+    {% endfor %}
+  </div>
+</div>

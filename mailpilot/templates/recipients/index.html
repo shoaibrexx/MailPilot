@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% from "components/stat_card.html" import stat_card %}
+{% from "components/empty_state.html" import empty_state %}
+{% from "components/topbar.html" import app_topbar %}
+
+{% block title %}Recipients · MailPilot{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/recipients.css') }}">
+{% endblock %}
+
+{% block body %}
+<div class="app-layout" id="app-layout">
+  {% include "components/sidebar.html" %}
+  <button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Close navigation" tabindex="-1"></button>
+  <div class="main-column">
+    {{ app_topbar("Recipients") }}
+    <main class="dashboard-main recipients-main">
+      <div class="recipients-heading">
+        <div>
+          <p class="eyebrow">AUDIENCE</p>
+          <h1>Recipients</h1>
+          <p class="page-subtitle">Manage your contacts and keep your audience organized.</p>
+        </div>
+        <div class="heading-actions">
+          <a class="button button--secondary" href="{{ url_for('recipients.import_csv') }}">Import CSV</a>
+          <a class="button button--primary" href="{{ url_for('recipients.new_recipient') }}"><span aria-hidden="true">+</span> Add recipient</a>
+        </div>
+      </div>
+
+      {% include "components/flashes.html" %}
+
+      <section class="recipient-stats" aria-label="Recipient statistics">
+        {{ stat_card("recipient-total", "Total recipients", "All saved contacts", "users", "violet", summary.total) }}
+        {{ stat_card("recipient-active", "Active", "Eligible for future audiences", "check", "green", summary.active) }}
+        {{ stat_card("recipient-inactive", "Inactive", "Excluded from future audiences", "alert", "rose", summary.inactive) }}
+        {{ stat_card("recipient-recent", "Added in 30 days", "Recently added contacts", "calendar", "blue", summary.recently_added) }}
+      </section>
+
+      <section class="recipient-workspace">
+        <article class="panel recipient-list-panel" aria-labelledby="recipient-list-heading">
+          <div class="list-panel-heading">
+            <div>
+              <h2 id="recipient-list-heading">All recipients</h2>
+              <p class="panel-description">Search, filter, and update your contact list.</p>
+            </div>
+            <span class="result-count">{{ pagination.total }} total</span>
+          </div>
+
+          <form class="recipient-filters" method="get" action="{{ url_for('recipients.index') }}">
+            <label class="search-field">
+              <span class="sr-only">Search name, email, or company</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg>
+              <input type="search" name="q" value="{{ search }}" placeholder="Search name, email, or company" maxlength="120">
+            </label>
+            <label class="filter-select">
+              <span class="sr-only">Filter by status</span>
+              <select name="status">
+                <option value="all"{% if status == "all" %} selected{% endif %}>All statuses</option>
+                <option value="active"{% if status == "active" %} selected{% endif %}>Active</option>
+                <option value="inactive"{% if status == "inactive" %} selected{% endif %}>Inactive</option>
+              </select>
+            </label>
+            <input type="hidden" name="per_page" value="{{ per_page }}">
+            <button class="button button--secondary button--filter" type="submit">Apply</button>
+            {% if search or status != "all" %}<a class="clear-filters" href="{{ url_for('recipients.index') }}">Clear</a>{% endif %}
+          </form>
+
+          {% if pagination.items %}
+          <div class="recipient-table-wrap">
+            <table class="recipient-table">
+              <thead>
+                <tr>
+                  <th scope="col">Recipient</th>
+                  <th scope="col">Company</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Added</th>
+                  <th scope="col"><span class="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for recipient in pagination.items %}
+                <tr>
+                  <td data-label="Recipient">
+                    <div class="recipient-person">
+                      <span class="recipient-avatar" aria-hidden="true">{{ (recipient.first_name[:1] if recipient.first_name else recipient.email[:1])|upper }}{{ recipient.last_name[:1]|upper if recipient.last_name else "" }}</span>
+                      <span class="recipient-person-copy">
+                        <a class="recipient-name" href="{{ url_for('recipients.detail', recipient_id=recipient.id) }}">{{ recipient.full_name or recipient.email }}</a>
+                        {% if recipient.full_name %}<span class="recipient-email">{{ recipient.email }}</span>{% endif %}
+                      </span>
+                    </div>
+                  </td>
+                  <td data-label="Company">{{ recipient.company or "—" }}</td>
+                  <td data-label="Status"><span class="recipient-status recipient-status--{{ 'active' if recipient.is_active else 'inactive' }}">{{ "Active" if recipient.is_active else "Inactive" }}</span></td>
+                  <td data-label="Added">{{ recipient.created_at.strftime("%b %d, %Y") }}</td>
+                  <td data-label="Actions">
+                    <div class="row-actions">
+                      <a class="text-action" href="{{ url_for('recipients.edit', recipient_id=recipient.id) }}">Edit</a>
+                      <form method="post" action="{{ url_for('recipients.toggle_status', recipient_id=recipient.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="text-action" type="submit">{{ "Deactivate" if recipient.is_active else "Activate" }}</button>
+                      </form>
+                      <form method="post" action="{{ url_for('recipients.remove', recipient_id=recipient.id) }}" data-confirm-delete>
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="text-action text-action--danger" type="submit">Delete</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="pagination-bar">
+            <p>Showing <strong>{{ (pagination.page - 1) * pagination.per_page + 1 }}</strong>–<strong>{{ (pagination.page - 1) * pagination.per_page + pagination.items|length }}</strong> of <strong>{{ pagination.total }}</strong></p>
+            <nav class="pagination-controls" aria-label="Recipient pages">
+              {% if pagination.has_prev %}<a class="page-control" href="{{ url_for('recipients.index', page=pagination.prev_num, q=search, status=status, per_page=per_page) }}" aria-label="Previous page">‹</a>{% else %}<span class="page-control is-disabled" aria-disabled="true">‹</span>{% endif %}
+              {% for page_number in pagination.iter_pages(left_edge=1, left_current=1, right_current=2, right_edge=1) %}
+                {% if page_number %}
+                  <a class="page-control{% if page_number == pagination.page %} is-current{% endif %}" href="{{ url_for('recipients.index', page=page_number, q=search, status=status, per_page=per_page) }}"{% if page_number == pagination.page %} aria-current="page"{% endif %}>{{ page_number }}</a>
+                {% else %}<span class="page-ellipsis" aria-hidden="true">…</span>{% endif %}
+              {% endfor %}
+              {% if pagination.has_next %}<a class="page-control" href="{{ url_for('recipients.index', page=pagination.next_num, q=search, status=status, per_page=per_page) }}" aria-label="Next page">›</a>{% else %}<span class="page-control is-disabled" aria-disabled="true">›</span>{% endif %}
+            </nav>
+          </div>
+          {% else %}
+          <div class="recipient-empty-wrap">
+            {% if search or status != "all" %}
+              {{ empty_state("users", "No matching recipients", "Try another search term or status filter.", "recipient-empty-state") }}
+              <a class="button button--secondary" href="{{ url_for('recipients.index') }}">Clear filters</a>
+            {% else %}
+              {{ empty_state("users", "Your list is ready for its first recipient", "Add a contact or import a CSV to start building your audience.", "recipient-empty-state") }}
+              <a class="button button--primary" href="{{ url_for('recipients.new_recipient') }}">Add your first recipient</a>
+            {% endif %}
+          </div>
+          {% endif %}
+        </article>
+
+        <aside class="panel recent-recipients-panel" aria-labelledby="recent-recipients-heading">
+          <div class="recent-panel-heading">
+            <div>
+              <p class="panel-kicker">LATEST ADDS</p>
+              <h2 id="recent-recipients-heading">Recently added</h2>
+            </div>
+            <span class="recent-total">{{ summary.recent_recipients|length }}</span>
+          </div>
+          {% if summary.recent_recipients %}
+            <ul class="recent-recipient-list">
+              {% for recipient in summary.recent_recipients %}
+              <li>
+                <span class="recipient-avatar recipient-avatar--small" aria-hidden="true">{{ (recipient.first_name[:1] if recipient.first_name else recipient.email[:1])|upper }}{{ recipient.last_name[:1]|upper if recipient.last_name else "" }}</span>
+                <span class="recent-person-copy">
+                  <a href="{{ url_for('recipients.detail', recipient_id=recipient.id) }}">{{ recipient.full_name or recipient.email }}</a>
+                  <small>{{ recipient.created_at.strftime("%b %d, %Y") }}</small>
+                </span>
+              </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            {{ empty_state("users", "No contacts yet", "New recipients will appear here after you add or import them.", "recent-empty-state") }}
+          {% endif %}
+        </aside>
+      </section>
+    </main>
+  </div>
+</div>
+<script src="{{ url_for('static', filename='js/recipients.js') }}" defer></script>
+{% endblock %}

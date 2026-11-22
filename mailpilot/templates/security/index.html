@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% from "components/icons.html" import icon %}
+{% from "components/topbar.html" import app_topbar %}
+
+{% block title %}Security · MailPilot{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/security.css') }}">{% endblock %}
+
+{% block body %}
+<div class="app-layout" id="app-layout">
+  {% include "components/sidebar.html" %}
+  <button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Close navigation" tabindex="-1"></button>
+  <div class="main-column">
+    {{ app_topbar("Security") }}
+    <main class="dashboard-main security-main">
+      <section class="page-heading">
+        <div><p class="eyebrow">WORKSPACE PROTECTION</p><h1>Security</h1><p class="page-subtitle">Review browser session protections and important local workspace actions.</p></div>
+      </section>
+
+      <section class="security-notice panel" aria-labelledby="auth-status-title">
+        <span class="security-notice-icon">{{ icon("shield") }}</span>
+        <div><p class="panel-kicker">AUTHENTICATION STATUS</p><h2 id="auth-status-title">{% if auth_enabled %}Private administrator sign-in is enabled{% else %}Authentication is disabled for this test app{% endif %}</h2><p>{% if auth_enabled %}This single-workspace installation uses a hashed administrator password, server-tracked sessions, CSRF-protected sign-out and persistent login throttling. No public registration is available.{% else %}The test configuration bypasses sign-in for isolated module tests.{% endif %}</p></div>
+        <span class="security-status-pill">{{ 'Sign-in enabled' if auth_enabled else 'Test mode' }}</span>
+      </section>
+
+      <div class="security-cards">
+        <section class="security-card panel" aria-labelledby="session-heading">
+          <div class="security-card-heading"><span class="security-card-icon">{{ icon("settings") }}</span><div><p class="panel-kicker">BROWSER SESSION</p><h2 id="session-heading">Session handling</h2></div></div>
+          <p class="security-card-copy">Workspace sessions are tracked in SQLite, expire after their idle or absolute lifetime, and can be revoked here. Signing out revokes the server-side session token.</p>
+          <dl class="security-facts">
+            <div><dt>Session cookie</dt><dd>{{ config.SESSION_COOKIE_NAME }}</dd></div>
+            <div><dt>Lifetime</dt><dd>{{ session_lifetime_hours }} hours</dd></div>
+            <div><dt>HTTP only</dt><dd>{{ 'Enabled' if cookie_http_only else 'Disabled' }}</dd></div>
+            <div><dt>SameSite</dt><dd>{{ cookie_same_site }}</dd></div>
+            <div><dt>Secure (HTTPS only)</dt><dd>{{ 'Enabled' if cookie_secure else 'Disabled' }}</dd></div>
+          </dl>
+          <p class="security-help-text">Enable <code>MAILPILOT_SECURE_COOKIES=true</code> when serving through HTTPS. Keep it disabled for local HTTP development.</p>
+          <form method="post" action="{{ url_for('security.clear_session') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button-secondary" type="submit">Sign out and revoke this session</button></form>
+        </section>
+
+        <section class="security-card panel" aria-labelledby="request-safety-heading">
+          <div class="security-card-heading"><span class="security-card-icon security-card-icon--safe">{{ icon("check") }}</span><div><p class="panel-kicker">REQUEST SAFETY</p><h2 id="request-safety-heading">Form protections</h2></div></div>
+          <ul class="security-check-list"><li><span>✓</span><div><strong>CSRF validation</strong><small>State-changing routes require a Flask-WTF token.</small></div></li><li><span>✓</span><div><strong>Server-side validation</strong><small>Forms validate values before saving to SQLite.</small></div></li><li><span>✓</span><div><strong>Output escaping</strong><small>Templates escape stored text by default.</small></div></li></ul>
+          <p class="security-help-text">This page reports application configuration; it does not represent a security audit of the host computer or network.</p>
+        </section>
+      </div>
+
+      <section class="security-events panel" aria-labelledby="sessions-heading">
+        <header class="security-events-header"><div><p class="panel-kicker">ACTIVE ACCESS</p><h2 id="sessions-heading">Workspace sessions</h2><p>Revoke a session to require its browser to sign in again.</p></div></header>
+        {% if auth_sessions %}<div class="table-wrap"><table class="security-event-table"><thead><tr><th>Session</th><th>Last activity</th><th>Expires</th><th>Action</th></tr></thead><tbody>
+          {% for auth_session in auth_sessions %}<tr><td><strong>{% if auth_session.id == current_auth_session_id %}This browser{% else %}Other session{% endif %}</strong></td><td>{{ auth_session.last_seen_at.strftime('%b %d, %Y %H:%M:%S UTC') }}</td><td>{{ auth_session.expires_at.strftime('%b %d, %Y %H:%M UTC') }}</td><td><form method="post" action="{{ url_for('security.revoke_session', session_id=auth_session.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button-secondary" type="submit">Revoke</button></form></td></tr>{% endfor %}
+        </tbody></table></div>{% else %}<div class="security-events-empty empty-state"><h3>No active administrator sessions</h3><p>Sign in to manage active sessions.</p></div>{% endif %}
+      </section>
+
+      <section class="security-events panel" aria-labelledby="suppression-management-heading">
+        <header class="security-events-header"><div><p class="panel-kicker">EMAIL CONSENT</p><h2 id="suppression-management-heading">Unsubscribe and suppression records</h2><p>Manage addresses excluded from all campaigns or one campaign.</p></div><a class="button-secondary" href="{{ url_for('security.suppressions') }}">Manage suppressions</a></header>
+      </section>
+
+      <section class="security-events panel" aria-labelledby="security-events-heading">
+        <header class="security-events-header"><div><p class="panel-kicker">LOCAL AUDIT TRAIL</p><h2 id="security-events-heading">Security events</h2><p>Successful and rejected workspace mutations recorded by MailPilot.</p></div>
+          <form method="get" action="{{ url_for('security.index') }}"><label for="event-outcome">Result</label><select id="event-outcome" name="outcome"><option value="all"{% if outcome == 'all' %} selected{% endif %}>All results</option><option value="success"{% if outcome == 'success' %} selected{% endif %}>Successful</option><option value="rejected"{% if outcome == 'rejected' %} selected{% endif %}>Rejected</option></select><button class="button-secondary" type="submit">Filter</button></form>
+        </header>
+        {% if pagination.items %}
+        <div class="table-wrap"><table class="security-event-table"><thead><tr><th>Action</th><th>Result</th><th>Request</th><th>HTTP</th><th>When</th></tr></thead><tbody>{% for event in pagination.items %}<tr><td><strong>{{ event.action }}</strong><small>{{ event.details }}</small></td><td><span class="security-result security-result--{{ event.outcome }}">{{ event.outcome|title }}</span></td><td><code>{{ event.method }} {{ event.endpoint }}</code></td><td>{{ event.status_code }}</td><td><time datetime="{{ event.created_at.isoformat() }}">{{ event.created_at.strftime("%b %d, %Y %H:%M:%S") }}</time></td></tr>{% endfor %}</tbody></table></div>
+        {% else %}<div class="security-events-empty empty-state"><span class="empty-state-icon">{{ icon("shield") }}</span><h3>No matching events</h3><p>Workspace changes will be listed here when they occur.</p></div>{% endif %}
+        {% if pagination.pages > 1 %}<nav class="notification-pagination" aria-label="Security event pages"><span>Page {{ pagination.page }} of {{ pagination.pages }} · {{ pagination.total }} events</span><div>{% if pagination.has_prev %}<a href="{{ url_for('security.index', page=pagination.prev_num, outcome=outcome) }}">Previous</a>{% endif %}{% if pagination.has_next %}<a href="{{ url_for('security.index', page=pagination.next_num, outcome=outcome) }}">Next</a>{% endif %}</div></nav>{% endif %}
+      </section>
+    </main>
+  </div>
+</div>
+{% endblock %}

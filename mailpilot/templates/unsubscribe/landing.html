@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Email preferences · MailPilot{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/auth.css') }}">{% endblock %}
+{% block body %}
+<main class="auth-main">
+  <section class="auth-card panel" aria-labelledby="unsubscribe-title">
+    <p class="eyebrow">EMAIL PREFERENCES</p>
+    <h1 id="unsubscribe-title">Manage campaign email</h1>
+    <p class="page-subtitle">Choose whether to stop all MailPilot campaign email or only messages from this campaign.</p>
+    <form method="post" class="auth-form">
+      <label class="notification-preference-option"><input type="radio" name="scope" value="global" checked><span><strong>All campaigns</strong><small>Stop all MailPilot marketing campaigns to this address.</small></span></label>
+      {% if campaign_id %}<label class="notification-preference-option"><input type="radio" name="scope" value="campaign"><span><strong>This campaign only</strong><small>Keep this address suppressed for campaign #{{ campaign_id }}.</small></span></label>{% endif %}
+      <button class="button-primary" type="submit">Unsubscribe</button>
+    </form>
+  </section>
+</main>
+{% endblock %}

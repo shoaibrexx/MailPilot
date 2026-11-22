@@ -1,0 +1,8 @@
+{% macro recipient_field(label, name, value, error=None, described_by=None) -%}
+  <div class="composer-field recipient-field{% if error %} has-error{% endif %}">
+    <label for="{{ name }}">{{ label }}</label>
+    <input id="{{ name }}" name="{{ name }}" type="text" inputmode="email" autocomplete="off" maxlength="10000" value="{{ value }}" aria-describedby="{{ name }}-help{% if error %} {{ name }}-error{% endif %}"{% if error %} aria-invalid="true"{% endif %}>
+    <span class="field-hint" id="{{ name }}-help">Separate addresses with commas.</span>
+    {% if error %}<span class="field-error" id="{{ name }}-error">{{ error }}</span>{% endif %}
+  </div>
+{%- endmacro %}

@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% from "components/icons.html" import icon %}
+{% from "components/topbar.html" import app_topbar %}
+
+{% block title %}{% if campaign %}Edit campaign{% else %}New campaign{% endif %} · MailPilot{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/campaigns.css') }}">
+  <script src="{{ url_for('static', filename='js/campaigns.js') }}" defer></script>
+{% endblock %}
+
+{% block body %}
+<div class="app-layout" id="app-layout">
+  {% include "components/sidebar.html" %}
+  <button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Close navigation" tabindex="-1"></button>
+  <div class="main-column">
+    {{ app_topbar("Campaigns") }}
+    <main class="campaign-main">
+      {% include "components/flashes.html" %}
+      <section class="page-heading campaign-heading" aria-labelledby="page-title">
+        <div>
+          <p class="eyebrow">CAMPAIGN WORKSPACE</p>
+          <h1 id="page-title">{% if campaign %}Edit campaign{% else %}Create campaign{% endif %}</h1>
+          <p class="page-subtitle">Choose saved content and an audience. Campaigns are prepared locally and are never sent.</p>
+        </div>
+        <a class="button-secondary campaign-back-link" href="{{ url_for('campaigns.index') }}">Back to campaigns</a>
+      </section>
+
+      <div class="campaign-form-layout">
+        <section class="campaign-panel panel">
+          <div class="campaign-panel-header">
+            <div><p class="panel-kicker">{% if campaign %}CAMPAIGN #{{ campaign.id }}{% else %}NEW CAMPAIGN{% endif %}</p><h2>Campaign details</h2></div>
+            <span class="status-badge status-badge--{{ form_values.get('status', 'draft') }}">{{ statuses.get(form_values.get('status', 'draft'), 'Draft') }}</span>
+          </div>
+          <form class="campaign-form" method="post" action="{% if campaign %}{{ url_for('campaigns.edit', campaign_id=campaign.id) }}{% else %}{{ url_for('campaigns.create') }}{% endif %}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <script type="application/json" id="campaign-draft-data">{{ draft_preview_data|tojson }}</script>
+
+            <div class="campaign-field{% if errors.get('name') %} has-error{% endif %}">
+              <label for="campaign-name">Campaign name</label>
+              <input id="campaign-name" name="name" type="text" maxlength="120" required value="{{ form_values.get('name', '') }}" placeholder="e.g. November product update" aria-describedby="campaign-name-help{% if errors.get('name') %} campaign-name-error{% endif %}"{% if errors.get('name') %} aria-invalid="true"{% endif %}>
+              <span class="field-hint" id="campaign-name-help">Internal name · up to 120 characters.</span>
+              {% if errors.get('name') %}<span class="field-error" id="campaign-name-error">{{ errors.name }}</span>{% endif %}
+            </div>
+
+            <div class="campaign-field{% if errors.get('email_draft_id') %} has-error{% endif %}">
+              <label for="email-draft-id">Email content</label>
+              <select id="email-draft-id" name="email_draft_id" required aria-describedby="draft-help{% if errors.get('email_draft_id') %} draft-error{% endif %}"{% if errors.get('email_draft_id') %} aria-invalid="true"{% endif %}>
+                <option value="">Choose a saved email draft</option>
+                {% for draft in drafts %}
+                  <option value="{{ draft.id }}"{% if form_values.get('email_draft_id') == draft.id|string %} selected{% endif %}>{{ draft.subject or "Untitled draft" }} · {{ draft.updated_at.strftime("%b %d, %Y") }}</option>
+                {% endfor %}
+              </select>
+              <span class="field-hint" id="draft-help">Campaign subject and body use the selected draft's saved content.</span>
+              {% if errors.get('email_draft_id') %}<span class="field-error" id="draft-error">{{ errors.email_draft_id }}</span>{% endif %}
+            </div>
+            {% if not drafts %}
+              <div class="inline-empty"><span>No saved email drafts are available.</span><a href="{{ url_for('composer.index') }}">Create a draft</a></div>
+            {% endif %}
+
+            <div class="draft-content-preview" data-draft-preview>
+              <div><span class="preview-label">SUBJECT</span><strong data-preview-subject>{% if campaign %}{{ campaign.subject }}{% else %}Choose a draft to preview its subject{% endif %}</strong></div>
+              <span class="preview-label">EMAIL BODY PREVIEW</span>
+              <iframe title="Campaign email content preview" sandbox="" data-preview-frame srcdoc="<!doctype html><html><head><meta charset=&quot;utf-8&quot;><meta name=&quot;viewport&quot; content=&quot;width=device-width,initial-scale=1&quot;><style>a{color:#00749A}</style></head><body style=&quot;font:14px/1.6 Arial,sans-serif;color:#1f2937;padding:18px;background:#fff&quot;>{% if campaign %}{{ safe_campaign_body|default('', true)|safe }}{% endif %}</body></html>"></iframe>
+            </div>
+
+            <div class="campaign-field campaign-status-field{% if errors.get('status') %} has-error{% endif %}">
+              <label for="campaign-status">Status</label>
+              <select id="campaign-status" name="status" aria-describedby="status-help{% if errors.get('status') %} status-error{% endif %}"{% if errors.get('status') %} aria-invalid="true"{% endif %}>
+                {% for key, label in statuses.items() %}<option value="{{ key }}"{% if form_values.get('status', 'draft') == key %} selected{% endif %}>{{ label }}</option>{% endfor %}
+              </select>
+              <span class="field-hint" id="status-help">Sending is always manual from a Ready campaign. Scheduled campaigns are not sent automatically.</span>
+              {% if errors.get('status') %}<span class="field-error" id="status-error">{{ errors.status }}</span>{% endif %}
+            </div>
+
+            <div class="campaign-field scheduled-field{% if errors.get('scheduled_at') %} has-error{% endif %}" data-schedule-field>
+              <label for="scheduled-at">Schedule for</label>
+              <input id="scheduled-at" name="scheduled_at" type="datetime-local" value="{{ form_values.get('scheduled_at', '') }}" aria-describedby="schedule-help{% if errors.get('scheduled_at') %} schedule-error{% endif %}"{% if errors.get('scheduled_at') %} aria-invalid="true"{% endif %}>
+              <span class="field-hint" id="schedule-help">Required for Scheduled status. Uses local time.</span>
+              {% if errors.get('scheduled_at') %}<span class="field-error" id="schedule-error">{{ errors.scheduled_at }}</span>{% endif %}
+            </div>
+
+            <fieldset class="campaign-audience-field{% if errors.get('recipient_group_ids') or errors.get('manual_recipient_ids') %} has-error{% endif %}">
+              <legend>Recipient audience</legend>
+              <p class="field-hint">Choose saved groups, individual active recipients, or both. Audience details are captured when you save.</p>
+              {% if groups %}
+                <div class="group-choice-list">
+                  {% for group in groups %}
+                    <label class="group-choice">
+                      <input type="checkbox" name="recipient_group_ids" value="{{ group.id }}"{% if group.id|string in selected_group_ids %} checked{% endif %}>
+                      <span class="group-choice-copy"><strong>{{ group.name }}</strong><small>{{ group_active_member_count(group) }} active recipients</small></span>
+                    </label>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <div class="inline-empty"><span>No recipient groups yet.</span><a href="{{ url_for('campaigns.new_group') }}">Create a group</a></div>
+              {% endif %}
+              {% if errors.get('recipient_group_ids') %}<span class="field-error">{{ errors.recipient_group_ids }}</span>{% endif %}
+              {% set recipient_ids_name = "manual_recipient_ids" %}
+              {% set picker_error = errors.get('manual_recipient_ids') %}
+              {% include "campaigns/recipient_picker.html" %}
+            </fieldset>
+
+            <div class="campaign-form-footer">
+              <a class="button-secondary" href="{{ url_for('campaigns.index') }}">Cancel</a>
+              <button class="button-primary" type="submit">{{ icon("check") }}<span>{% if campaign %}Save changes{% else %}Create campaign{% endif %}</span></button>
+            </div>
+          </form>
+        </section>
+
+        <aside class="campaign-side-panel panel">
+          <p class="panel-kicker">CAMPAIGN WORKFLOW</p>
+          <h2>Prepare with confidence</h2>
+          <ol class="workflow-steps">
+            <li><span>1</span><div><strong>Choose content</strong><p>Campaigns use a saved Email Composer draft. The subject and body are copied when saved.</p></div></li>
+            <li><span>2</span><div><strong>Build your audience</strong><p>Use active contacts or reusable recipient groups. Current address details are stored as a campaign snapshot.</p></div></li>
+            <li><span>3</span><div><strong>Set a status</strong><p>Schedule, Ready, Draft, and Completed are planning states. MailPilot does not send campaigns.</p></div></li>
+          </ol>
+          <a class="side-panel-link" href="{{ url_for('campaigns.groups') }}">Manage recipient groups →</a>
+        </aside>
+      </div>
+    </main>
+  </div>
+</div>
+{% endblock %}

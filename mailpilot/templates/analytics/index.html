@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% from "components/icons.html" import icon %}
+{% from "components/topbar.html" import app_topbar %}
+
+{% block title %}Analytics - MailPilot{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/analytics.css') }}">
+  <script src="{{ url_for('static', filename='js/analytics.js') }}" defer></script>
+{% endblock %}
+
+{% block body %}
+<div class="app-layout" id="app-layout">
+  {% include "components/sidebar.html" %}
+  <button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Close navigation" tabindex="-1"></button>
+  <div class="main-column">
+    {{ app_topbar("Analytics") }}
+    <main class="analytics-main">
+      {% include "components/flashes.html" %}
+      <section class="page-heading analytics-heading" aria-labelledby="page-title">
+        <div><p class="eyebrow">REPORTING</p><h1 id="page-title">Analytics</h1><p class="page-subtitle">Understand saved audiences, campaign activity and recorded SMTP outcomes.</p></div>
+        <div class="analytics-heading-actions">
+          <form class="range-form" method="get" action="{{ url_for('analytics.index') }}">
+            <label for="analytics-range">Reporting period</label>
+            <select id="analytics-range" name="range">
+              {% for key, option in ranges.items() %}<option value="{{ key }}"{% if data.range_key == key %} selected{% endif %}>{{ option.label }}</option>{% endfor %}
+            </select>
+            <button class="button-secondary range-apply" type="submit">Apply</button>
+          </form>
+          <a class="button-secondary" href="{{ url_for('analytics.export_csv', range=data.range_key) }}">{{ icon("download") }}<span>Export CSV</span></a>
+        </div>
+      </section>
+
+      <section class="analytics-summary-grid" aria-label="Current database totals">
+        <article class="analytics-stat"><span>All campaigns</span><strong>{{ data.summary.total_campaigns }}</strong><small>Saved campaign records</small></article>
+        <article class="analytics-stat analytics-stat--draft"><span>Draft campaigns</span><strong>{{ data.summary.draft_campaigns }}</strong><small>Still being prepared</small></article>
+        <article class="analytics-stat analytics-stat--scheduled"><span>Scheduled campaigns</span><strong>{{ data.summary.scheduled_campaigns }}</strong><small>Planning status only</small></article>
+        <article class="analytics-stat analytics-stat--ready"><span>Ready campaigns</span><strong>{{ data.summary.ready_campaigns }}</strong><small>Available for explicit sending</small></article>
+        <article class="analytics-stat analytics-stat--completed"><span>Completed campaigns</span><strong>{{ data.summary.completed_campaigns }}</strong><small>Manually marked complete</small></article>
+        <article class="analytics-stat analytics-stat--contacts"><span>Total recipients</span><strong>{{ data.summary.total_recipients }}</strong><small>Saved contacts</small></article>
+        <article class="analytics-stat analytics-stat--active"><span>Active contacts</span><strong>{{ data.summary.active_recipients }}</strong><small>Available for campaign planning</small></article>
+        <article class="analytics-stat analytics-stat--inactive"><span>Inactive contacts</span><strong>{{ data.summary.inactive_recipients }}</strong><small>Excluded from new audiences</small></article>
+      </section>
+
+      <section class="analytics-summary-grid execution-summary-grid" aria-label="Sending outcomes for {{ data.range_label|lower }}">
+        <article class="analytics-stat"><span>Campaign SMTP attempts</span><strong>{{ data.execution.campaign_attempts }}</strong><small>One recipient message per attempt</small></article>
+        <article class="analytics-stat analytics-stat--active"><span>Campaign SMTP accepted</span><strong>{{ data.execution.campaign_accepted }}</strong><small>Acceptance is not confirmed delivery</small></article>
+        <article class="analytics-stat analytics-stat--inactive"><span>Known failed attempts</span><strong>{{ data.execution.campaign_failed }}</strong><small>Temporary and permanent SMTP failures</small></article>
+        <article class="analytics-stat"><span>Campaign uncertain</span><strong>{{ data.execution.campaign_uncertain }}</strong><small>Acceptance could not be confirmed</small></article>
+        <article class="analytics-stat analytics-stat--active"><span>Composer messages accepted</span><strong>{{ data.execution.composer_messages_accepted }}</strong><small>Explicit draft sends recorded as accepted</small></article>
+        <article class="analytics-stat"><span>Composer partial outcomes</span><strong>{{ data.execution.composer_messages_partial }}</strong><small>Some SMTP recipients were refused</small></article>
+        <article class="analytics-stat analytics-stat--inactive"><span>Composer failed messages</span><strong>{{ data.execution.composer_messages_failed }}</strong><small>Explicit draft send attempts</small></article>
+        <article class="analytics-stat"><span>Composer uncertain</span><strong>{{ data.execution.composer_messages_uncertain }}</strong><small>Check the sender's Sent folder</small></article>
+        <article class="analytics-stat analytics-stat--scheduled"><span>Pending campaign recipients</span><strong>{{ data.execution.pending_campaign_recipients }}</strong><small>Queued, retrying or sending now</small></article>
+        <article class="analytics-stat"><span>Suppression records</span><strong>{{ data.execution.suppression_records }}</strong><small>Current records on file</small></article>
+        <article class="analytics-stat analytics-stat--scheduled"><span>Campaign recipients suppressed / inactive</span><strong>{{ data.execution.suppressed_exclusions }}</strong><small>Current queued audience exclusions</small></article>
+        <article class="analytics-stat analytics-stat--inactive"><span>Permanent bounces</span><strong>{{ data.execution.permanent_bounces }}</strong><small>Matched DSNs in this period</small></article>
+        <article class="analytics-stat analytics-stat--scheduled"><span>Temporary bounces</span><strong>{{ data.execution.temporary_bounces }}</strong><small>Matched DSNs in this period</small></article>
+      </section>
+
+      <div class="metrics-notice" role="note">
+        <span class="notice-mark" aria-hidden="true">i</span>
+        <p><strong>Recorded application outcomes only.</strong> "SMTP accepted" means Gmail accepted the message for submission; it does not confirm inbox delivery. Campaign attempts are counted per recipient. Composer totals count messages, and partial results are kept separate because exact accepted recipient counts are not stored for older composer history. Bounce counts come only from matched RFC 3464 reports imported through configured Gmail IMAP. Pending recipients and suppression records are current; other outcome counts use the selected period. Opens and clicks are not tracked.</p>
+      </div>
+
+      <section class="analytics-chart-grid" aria-label="Activity charts">
+        <article class="analytics-panel chart-panel">
+          <div class="analytics-panel-header"><div><p class="panel-kicker">CAMPAIGN ACTIVITY</p><h2>Campaigns created</h2><p class="panel-description">New campaign records during {{ data.range_label|lower }}.</p></div><span class="chart-total">{{ data.campaigns_in_range }} <small>campaigns</small></span></div>
+          {% if data.campaign_activity_has_data %}<div class="chart-canvas" data-chart="campaign-activity" aria-label="Campaign creation trend chart"></div><p class="chart-hint">Focus or hover a point to inspect its value.</p>{% else %}<div class="chart-empty">No campaigns were created in this reporting period.</div>{% endif %}
+        </article>
+        <article class="analytics-panel chart-panel">
+          <div class="analytics-panel-header"><div><p class="panel-kicker">AUDIENCE GROWTH</p><h2>Saved recipients</h2><p class="panel-description">Cumulative saved contacts over time.</p></div><span class="chart-total">{{ data.summary.total_recipients }} <small>contacts</small></span></div>
+          {% if data.recipient_growth_has_data %}<div class="chart-canvas" data-chart="recipient-growth" aria-label="Cumulative recipient growth chart"></div><p class="chart-hint">Focus or hover a point to inspect its value.</p>{% else %}<div class="chart-empty">Recipient growth will appear when contacts are added.</div>{% endif %}
+        </article>
+        <article class="analytics-panel chart-panel">
+          <div class="analytics-panel-header"><div><p class="panel-kicker">EMAIL EXECUTION</p><h2>SMTP outcomes</h2><p class="panel-description">Campaign recipient messages and composer messages by recorded outcome.</p></div></div>
+          {% if data.sending_activity_has_data %}<div class="chart-canvas" data-chart="sending-activity" aria-label="SMTP accepted and failed message outcomes over time"></div><p class="chart-hint">Partial and uncertain outcomes are reported separately above.</p>{% else %}<div class="chart-empty">No SMTP sending outcomes were recorded in this reporting period.</div>{% endif %}
+        </article>
+        <article class="analytics-panel chart-panel status-chart-panel">
+          <div class="analytics-panel-header"><div><p class="panel-kicker">CAMPAIGN STATUS</p><h2>Status distribution</h2><p class="panel-description">Campaign records created during {{ data.range_label|lower }}.</p></div></div>
+          {% if data.status_distribution_has_data %}<div class="status-chart" data-chart="status-distribution" aria-label="Campaign status distribution chart"></div><div class="status-legend">{% for item in data.status_distribution %}<span><i class="status-dot status-dot--{{ item.key }}"></i>{{ item.label }} <strong>{{ item.value }}</strong></span>{% endfor %}</div>{% else %}<div class="chart-empty">Campaign status distribution will appear when campaign records exist in this period.</div>{% endif %}
+        </article>
+      </section>
+
+      <section class="analytics-panel report-panel" aria-labelledby="report-heading">
+        <div class="analytics-panel-header report-header"><div><p class="panel-kicker">CAMPAIGN REPORT</p><h2 id="report-heading">Campaign performance</h2><p class="panel-description">Saved audience, SMTP attempts, current queue exclusions and matched bounces for {{ data.range_label|lower }}.</p></div><span class="chart-total">{{ data.report_pagination.total }} <small>records</small></span></div>
+        {% if data.report_pagination.items %}
+          <div class="report-table-scroll"><table class="analytics-table"><thead><tr><th scope="col">Campaign</th><th scope="col">Subject</th><th scope="col">Status</th><th scope="col">Recipients</th><th scope="col">SMTP attempts</th><th scope="col">Accepted</th><th scope="col">Failures</th><th scope="col">Uncertain</th><th scope="col">Pending</th><th scope="col">Suppressed / inactive</th><th scope="col">Permanent bounces</th><th scope="col">Temporary bounces</th><th scope="col">Scheduled</th><th scope="col">Created</th></tr></thead><tbody>
+          {% for campaign in data.report_pagination.items %}{% set metrics = data.report_campaign_metrics[campaign.id] %}<tr>
+            <td><a class="report-campaign-link" href="{{ url_for('campaigns.detail', campaign_id=campaign.id) }}">{{ campaign.name }}</a><small>{{ campaign.draft_name }}</small></td>
+            <td>{{ campaign.subject }}</td>
+            <td><span class="status-badge status-badge--{{ campaign.status }}">{{ campaign.status_label }}</span></td>
+            <td><strong>{{ campaign.recipient_count }}</strong><small>saved in snapshot</small></td>
+            <td>{{ metrics.attempts }}</td><td>{{ metrics.accepted }}</td><td>{{ metrics.failed }}</td><td>{{ metrics.uncertain }}</td><td>{{ metrics.pending }}</td><td>{{ metrics.suppressed_excluded }}</td><td>{{ metrics.permanent_bounces }}</td><td>{{ metrics.temporary_bounces }}</td>
+            <td>{% if campaign.scheduled_at %}{{ campaign.scheduled_at.strftime("%b %d, %Y %H:%M") }}{% else %}<span class="muted-value">-</span>{% endif %}</td>
+            <td>{{ campaign.created_at.strftime("%b %d, %Y") }}</td>
+          </tr>{% endfor %}
+          </tbody></table></div>
+          {% if data.report_pagination.pages > 1 %}<nav class="analytics-pagination" aria-label="Campaign report pages"><span>Page {{ data.report_pagination.page }} of {{ data.report_pagination.pages }}</span><div>{% if data.report_pagination.has_prev %}<a href="{{ url_for('analytics.index', range=data.range_key, page=data.report_pagination.prev_num, per_page=per_page) }}">Previous</a>{% endif %}{% if data.report_pagination.has_next %}<a href="{{ url_for('analytics.index', range=data.range_key, page=data.report_pagination.next_num, per_page=per_page) }}">Next</a>{% endif %}</div></nav>{% endif %}
+        {% else %}<div class="report-empty"><strong>No campaign records in this period</strong><span>Campaigns saved during the selected date range will appear here.</span></div>{% endif %}
+      </section>
+      <p class="analytics-footnote">Recipient counts reflect the saved audience snapshot. Campaign statuses are planning records, and "Completed" is manually assigned; neither indicates email delivery. Suppressed / inactive counts show recipients excluded from a queued campaign, not only opt-outs. Temporary bounce reports are not permanent suppressions. Deleted-contact and status-change history are not retained.</p>
+      <script id="analytics-chart-data" type="application/json">{{ {"campaignActivity": data.campaign_activity, "recipientGrowth": data.recipient_growth, "sendingActivity": data.sending_activity, "statusDistribution": data.status_distribution}|tojson }}</script>
+    </main>
+  </div>
+</div>
+{% endblock %}

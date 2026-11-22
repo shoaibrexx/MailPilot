@@ -1,0 +1,38 @@
+{% from "components/icons.html" import icon %}
+
+{% macro app_topbar(current_page) %}
+<header class="topbar">
+  <button class="icon-button mobile-menu-toggle" id="mobile-menu-toggle" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="primary-navigation">
+    {{ icon("menu") }}
+  </button>
+  <div class="topbar-context">
+    <span class="topbar-section">Workspace</span>
+    <span class="topbar-divider">/</span>
+    <span class="topbar-current">{{ current_page }}</span>
+  </div>
+  <div class="topbar-actions">
+    <span class="workspace-status"><span class="status-dot"></span>MailPilot is ready</span>
+    <span class="topbar-separator" aria-hidden="true"></span>
+    <div class="notification-widget" data-notification-widget
+      data-recent-url="{{ url_for('notifications.recent') }}"
+      data-notifications-url="{{ url_for('notifications.index') }}"
+      data-action-base-url="{{ url_for('notifications.index') }}"
+      data-read-all-url="{{ url_for('notifications.mark_all_read') }}"
+      data-csrf-token="{{ csrf_token() }}">
+      <button class="icon-button notification-toggle" id="notification-toggle" type="button" aria-label="Notifications{% if notification_unread_count %}, {{ notification_unread_count }} unread{% endif %}" aria-expanded="false" aria-controls="notification-dropdown">
+        {{ icon("bell") }}
+        <span class="notification-badge" data-notification-badge{% if not notification_unread_count %} hidden{% endif %}>{{ notification_unread_count }}</span>
+      </button>
+      <section class="notification-dropdown" id="notification-dropdown" aria-label="Recent notifications" hidden>
+        <header class="notification-dropdown-header"><div><strong>Notifications</strong><span data-notification-unread-label>{{ notification_unread_count }} unread</span></div><button type="button" class="notification-text-button" data-notification-read-all>Mark all read</button></header>
+        <div class="notification-dropdown-list" data-notification-list><p class="notification-dropdown-loading">Loading notifications…</p></div>
+        <footer class="notification-dropdown-footer"><a href="{{ url_for('notifications.index') }}">View notification history</a></footer>
+      </section>
+    </div>
+    <button class="icon-button theme-toggle" id="theme-toggle" type="button" aria-label="Switch color theme" title="Switch color theme" data-theme-save-url="{{ url_for('settings.save_theme') }}" data-csrf-token="{{ csrf_token() }}">
+      {{ icon("moon", "theme-icon theme-icon--moon") }}
+      {{ icon("sun", "theme-icon theme-icon--sun") }}
+    </button>
+  </div>
+</header>
+{% endmacro %}

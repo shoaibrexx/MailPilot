@@ -1,0 +1,56 @@
+{% from "components/icons.html" import icon %}
+{% set active_endpoint = request.endpoint or "" %}
+
+<aside class="sidebar" aria-label="Primary sidebar">
+  <a class="brand-lockup" href="{{ url_for('dashboard.index') }}" aria-label="MailPilot dashboard">
+    <span class="brand-mark">{{ icon("send") }}</span>
+    <span class="brand-name">mailpilot<span class="brand-period">.</span></span>
+  </a>
+
+  <nav class="primary-navigation" id="primary-navigation" aria-label="Primary navigation">
+    <p class="navigation-label">WORKSPACE</p>
+    <a class="navigation-link{% if active_endpoint.startswith('dashboard.') %} is-active{% endif %}" href="{{ url_for('dashboard.index') }}"{% if active_endpoint.startswith('dashboard.') %} aria-current="page"{% endif %}>
+      {{ icon("grid") }}<span>Dashboard</span>
+    </a>
+    <a class="navigation-link{% if active_endpoint.startswith('recipients.') %} is-active{% endif %}" href="{{ url_for('recipients.index') }}"{% if active_endpoint.startswith('recipients.') %} aria-current="page"{% endif %}>
+      {{ icon("users") }}<span>Recipients</span>
+    </a>
+    <a class="navigation-link{% if active_endpoint.startswith('composer.') %} is-active{% endif %}" href="{{ url_for('composer.index') }}"{% if active_endpoint.startswith('composer.') %} aria-current="page"{% endif %}>
+      {{ icon("edit") }}<span>Email Composer</span>
+    </a>
+    <a class="navigation-link{% if active_endpoint.startswith('campaigns.') %} is-active{% endif %}" href="{{ url_for('campaigns.index') }}"{% if active_endpoint.startswith('campaigns.') %} aria-current="page"{% endif %}>
+      {{ icon("send") }}<span>Campaigns</span>
+    </a>
+
+    <p class="navigation-label navigation-label--spaced">INSIGHTS</p>
+    <a class="navigation-link{% if active_endpoint.startswith('analytics.') %} is-active{% endif %}" href="{{ url_for('analytics.index') }}"{% if active_endpoint.startswith('analytics.') %} aria-current="page"{% endif %}>
+      {{ icon("chart") }}<span>Analytics</span>
+    </a>
+
+    <p class="navigation-label navigation-label--spaced">PREFERENCES</p>
+    <a class="navigation-link{% if active_endpoint.startswith('settings.') %} is-active{% endif %}" href="{{ url_for('settings.index') }}"{% if active_endpoint.startswith('settings.') %} aria-current="page"{% endif %}>
+      {{ icon("settings") }}<span>Settings</span>
+    </a>
+    <a class="navigation-link{% if active_endpoint.startswith('notifications.') %} is-active{% endif %}" href="{{ url_for('notifications.index') }}"{% if active_endpoint.startswith('notifications.') %} aria-current="page"{% endif %}>
+      {{ icon("bell") }}<span>Notifications</span>{% if notification_unread_count %}<span class="navigation-count">{{ notification_unread_count }}</span>{% endif %}
+    </a>
+    <a class="navigation-link{% if active_endpoint.startswith('security.') %} is-active{% endif %}" href="{{ url_for('security.index') }}"{% if active_endpoint.startswith('security.') %} aria-current="page"{% endif %}>
+      {{ icon("shield") }}<span>Security</span>
+    </a>
+  </nav>
+
+  <div class="sidebar-bottom">
+    <div class="sidebar-plan-card">
+      <span class="plan-orbit" aria-hidden="true"></span>
+      <p class="plan-eyebrow">YOUR WORKSPACE</p>
+      <p class="plan-title">{{ workspace_name|default("MailPilot Workspace") }}</p>
+      {% if workspace_description %}<p class="plan-copy">{{ workspace_description }}</p>{% endif %}
+    </div>
+    {% if current_user %}<form class="sidebar-signout" method="post" action="{{ url_for('auth.logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="text-button" type="submit">Sign out</button></form>{% endif %}
+    <div class="sidebar-user">
+      <span class="user-avatar" aria-hidden="true">MP</span>
+      <span class="user-details"><strong>{{ current_user.display_name if current_user else (profile_name|default("") or "Workspace") }}</strong><small>{{ current_user.username if current_user else (profile_email|default("") or "Local environment") }}</small></span>
+      <span class="user-menu-indicator" aria-hidden="true">•••</span>
+    </div>
+  </div>
+</aside>

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "components/topbar.html" import app_topbar %}
+
+{% block title %}{% if group %}Edit recipient group{% else %}New recipient group{% endif %} · Campaigns{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/campaigns.css') }}">
+  <script src="{{ url_for('static', filename='js/campaigns.js') }}" defer></script>
+{% endblock %}
+
+{% block body %}
+<div class="app-layout" id="app-layout">
+  {% include "components/sidebar.html" %}
+  <button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Close navigation" tabindex="-1"></button>
+  <div class="main-column">
+    {{ app_topbar("Campaigns") }}
+    <main class="campaign-main">
+      {% include "components/flashes.html" %}
+      <section class="page-heading campaign-heading" aria-labelledby="page-title">
+        <div><p class="eyebrow">AUDIENCE MANAGEMENT</p><h1 id="page-title">{% if group %}Edit recipient group{% else %}New recipient group{% endif %}</h1><p class="page-subtitle">Groups can be reused across campaigns; only currently active contacts are included.</p></div>
+        <a class="button-secondary" href="{{ url_for('campaigns.groups') }}">Back to groups</a>
+      </section>
+      <section class="campaign-panel panel group-form-panel">
+        <div class="campaign-panel-header"><div><p class="panel-kicker">SAVED AUDIENCE</p><h2>Group details</h2></div></div>
+        <form class="campaign-form" method="post" action="{% if group %}{{ url_for('campaigns.edit_group', group_id=group.id) }}{% else %}{{ url_for('campaigns.create_group') }}{% endif %}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="campaign-field{% if errors.get('name') %} has-error{% endif %}"><label for="group-name">Group name</label><input id="group-name" name="name" type="text" maxlength="120" required value="{{ form_values.get('name', '') }}" placeholder="e.g. Product beta readers">{% if errors.get('name') %}<span class="field-error">{{ errors.name }}</span>{% endif %}</div>
+          <fieldset class="campaign-audience-field{% if errors.get('recipient_ids') %} has-error{% endif %}"><legend>Group members</legend><p class="field-hint">Select active contacts. Inactive recipients are ignored when this group is used by a campaign.</p>{% set recipient_ids_name = "recipient_ids" %}{% set picker_error = errors.get('recipient_ids') %}{% include "campaigns/recipient_picker.html" %}</fieldset>
+          <div class="campaign-form-footer"><a class="button-secondary" href="{{ url_for('campaigns.groups') }}">Cancel</a><button class="button-primary" type="submit">{% if group %}Save group{% else %}Create group{% endif %}</button></div>
+        </form>
+      </section>
+    </main>
+  </div>
+</div>
+{% endblock %}

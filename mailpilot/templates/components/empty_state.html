@@ -1,0 +1,9 @@
+{% from "components/icons.html" import icon %}
+
+{% macro empty_state(icon_name, title, message, class_name="") %}
+<div class="empty-state {{ class_name }}">
+  <span class="empty-state-icon">{{ icon(icon_name) }}</span>
+  <h3>{{ title }}</h3>
+  <p>{{ message }}</p>
+</div>
+{% endmacro %}

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% from "components/icons.html" import icon %}
+{% from "components/topbar.html" import app_topbar %}
+
+{% block title %}Notifications · MailPilot{% endblock %}
+
+{% block body %}
+<div class="app-layout" id="app-layout">
+  {% include "components/sidebar.html" %}
+  <button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Close navigation" tabindex="-1"></button>
+  <div class="main-column">
+    {{ app_topbar("Notifications") }}
+    <main class="dashboard-main notifications-main">
+      <section class="page-heading notification-page-heading">
+        <div><p class="eyebrow">WORKSPACE ACTIVITY</p><h1>Notifications</h1><p class="page-subtitle">Review local activity alerts and keep the inbox clear.</p></div>
+        <div class="notification-page-actions">
+          {% if unread_count %}<form method="post" action="{{ url_for('notifications.mark_all_read') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button-secondary" type="submit">Mark all read</button></form>{% endif %}
+          {% if pagination.total %}<form method="post" action="{{ url_for('notifications.clear') }}" data-confirm="Clear the entire notification history?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button-danger" type="submit">Clear history</button></form>{% endif %}
+        </div>
+      </section>
+
+      <section class="notification-panel panel" aria-label="Notification history">
+        <form class="notification-filters" method="get" action="{{ url_for('notifications.index') }}">
+          <label>Type<select name="category"><option value="all"{% if category == 'all' %} selected{% endif %}>All types</option>{% for kind in ('success', 'warning', 'error', 'info') %}<option value="{{ kind }}"{% if category == kind %} selected{% endif %}>{{ 'Information' if kind == 'info' else kind|title }}</option>{% endfor %}</select></label>
+          <label>Status<select name="read_state"><option value="all"{% if read_state == 'all' %} selected{% endif %}>All notifications</option><option value="unread"{% if read_state == 'unread' %} selected{% endif %}>Unread</option><option value="read"{% if read_state == 'read' %} selected{% endif %}>Read</option></select></label>
+          <button class="button-secondary" type="submit">Apply filters</button>
+        </form>
+
+        {% if pagination.items %}
+        <div class="notification-history-list">
+          {% for item in pagination.items %}
+          <article class="notification-history-item{% if not item.is_read %} is-unread{% endif %}" data-category="{{ item.category }}">
+            <span class="notification-kind-icon notification-kind-icon--{{ item.category }}" aria-hidden="true">{% if item.category == 'success' %}✓{% elif item.category == 'warning' %}!{% elif item.category == 'error' %}×{% else %}i{% endif %}</span>
+            <div class="notification-history-content">
+              <div class="notification-history-title-row"><h2>{{ item.title }}</h2>{% if not item.is_read %}<span class="notification-unread-mark">Unread</span>{% endif %}</div>
+              <p>{{ item.message }}</p>
+              <div class="notification-meta"><span>{{ item.category_label }}</span><span>·</span><time datetime="{{ item.created_at.isoformat() }}">{{ item.created_at.strftime("%b %d, %Y at %H:%M") }}</time></div>
+            </div>
+            <div class="notification-item-actions">
+              <form method="post" action="{{ url_for('notifications.mark_unread' if item.is_read else 'notifications.mark_read', notification_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="notification-action-link">Mark {{ 'unread' if item.is_read else 'read' }}</button></form>
+              <form method="post" action="{{ url_for('notifications.remove', notification_id=item.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="notification-action-link notification-action-link--danger">Delete</button></form>
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="notification-empty empty-state"><span class="empty-state-icon">{{ icon("bell") }}</span><h3>No notifications here</h3><p>{% if category != 'all' or read_state != 'all' %}Try changing the filters to see more history.{% else %}Workspace activity alerts will appear here when there is something to review.{% endif %}</p></div>
+        {% endif %}
+
+        {% if pagination.pages > 1 %}
+        <nav class="notification-pagination" aria-label="Notification pages">
+          <span>Page {{ pagination.page }} of {{ pagination.pages }} · {{ pagination.total }} notifications</span>
+          <div>{% if pagination.has_prev %}<a href="{{ url_for('notifications.index', page=pagination.prev_num, category=category, read_state=read_state) }}">Previous</a>{% endif %}{% if pagination.has_next %}<a href="{{ url_for('notifications.index', page=pagination.next_num, category=category, read_state=read_state) }}">Next</a>{% endif %}</div>
+        </nav>
+        {% endif %}
+      </section>
+    </main>
+  </div>
+</div>
+{% endblock %}

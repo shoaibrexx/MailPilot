@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% from "components/topbar.html" import app_topbar %}
+{% from "components/stat_card.html" import stat_card %}
+{% from "components/icons.html" import icon %}
+
+{% block title %}Import recipients · MailPilot{% endblock %}
+
+{% block head %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/recipients.css') }}">
+{% endblock %}
+
+{% block body %}
+<div class="app-layout" id="app-layout">
+  {% include "components/sidebar.html" %}
+  <button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Close navigation" tabindex="-1"></button>
+  <div class="main-column">
+    {{ app_topbar("Recipients") }}
+    <main class="dashboard-main recipients-main recipients-form-main">
+      <a class="back-link" href="{{ url_for('recipients.index') }}">‹ Back to recipients</a>
+      <div class="form-page-heading">
+        <p class="eyebrow">AUDIENCE</p>
+        <h1>Import recipients</h1>
+        <p class="page-subtitle">Bring your contact list into MailPilot with a UTF-8 CSV file.</p>
+      </div>
+
+      {% if error %}<div class="form-alert" role="alert">{{ error }}</div>{% endif %}
+
+      {% if summary %}
+      <section class="import-summary" aria-labelledby="import-summary-heading">
+        <div class="summary-result-heading">
+          <span class="summary-success-icon">{{ icon("check") }}</span>
+          <div>
+            <h2 id="import-summary-heading">Import complete</h2>
+            <p>The original filename was discarded during validation.</p>
+          </div>
+        </div>
+        <div class="recipient-stats import-stat-grid">
+          {{ stat_card("import-total", "Total rows", "Non-empty data rows in the file", "users", "violet", summary.total_rows) }}
+          {{ stat_card("imported", "Imported", "New recipients added", "check", "green", summary.imported) }}
+          {{ stat_card("duplicates", "Duplicates", "Already present or repeated", "alert", "blue", summary.duplicates) }}
+          {{ stat_card("invalid", "Invalid", "Skipped safely", "alert", "rose", summary.invalid) }}
+        </div>
+        <a class="button button--secondary" href="{{ url_for('recipients.index') }}">View recipients</a>
+      </section>
+      {% endif %}
+
+      <section class="panel import-panel" aria-labelledby="import-panel-heading">
+        <div class="form-panel-heading">
+          <span class="form-panel-icon">{{ icon("users") }}</span>
+          <div>
+            <h2 id="import-panel-heading">Upload a recipient CSV</h2>
+            <p class="panel-description">Files are validated and saved outside the public web directory.</p>
+          </div>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" action="{{ url_for('recipients.import_csv') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label class="upload-dropzone" for="recipient-csv-file">
+            <span class="upload-icon">{{ icon("mail") }}</span>
+            <strong id="upload-title">Choose a CSV file</strong>
+            <span id="upload-filename">UTF-8 CSV · up to {{ (config.MAX_CONTENT_LENGTH / 1024 / 1024)|round(0, 'floor')|int }} MB</span>
+            <input id="recipient-csv-file" name="file" type="file" accept=".csv,text/csv" required>
+          </label>
+          <div class="import-guidance">
+            <h3>Supported columns</h3>
+            <p><code>email</code> is required. <code>first_name</code>, <code>last_name</code>, <code>company</code>, and <code>status</code> are optional. Blank lines are ignored; invalid rows are skipped.</p>
+            <p>Each non-empty row is checked for a valid email address and duplicate email before it is imported.</p>
+          </div>
+          <div class="form-actions">
+            <a class="button button--secondary" href="{{ url_for('recipients.index') }}">Back</a>
+            <button class="button button--primary" type="submit">Import CSV</button>
+          </div>
+        </form>
+      </section>
+    </main>
+  </div>
+</div>
+<script src="{{ url_for('static', filename='js/recipients.js') }}" defer></script>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% macro text_field(form_values, errors, name, label, hint, limit, required=false, input_type="text") %}
+  {% set error = errors.get(name) %}
+  <div class="form-field{% if error %} has-error{% endif %}">
+    <label for="recipient-{{ name }}">{{ label }}{% if required %}<span class="required-mark" aria-hidden="true">*</span>{% endif %}</label>
+    <input id="recipient-{{ name }}" name="{{ name }}" type="{{ input_type }}" value="{{ form_values.get(name, '') }}" maxlength="{{ limit }}"{% if required %} required{% endif %}{% if input_type == "email" %} autocomplete="email"{% endif %} aria-invalid="{{ 'true' if error else 'false' }}"{% if error %} aria-describedby="recipient-{{ name }}-error"{% endif %}>
+    {% if hint and not error %}<small class="field-hint">{{ hint }}</small>{% endif %}
+    {% if error %}<small class="field-error" id="recipient-{{ name }}-error">{{ error }}</small>{% endif %}
+  </div>
+{% endmacro %}
+
+{% macro recipient_form(form_values, errors, submit_label) %}
+  {% if errors.get("_form") %}<div class="form-alert" role="alert">{{ errors.get("_form") }}</div>{% endif %}
+  <div class="form-grid">
+    {{ text_field(form_values, errors, "first_name", "First name", "Optional", 80) }}
+    {{ text_field(form_values, errors, "last_name", "Last name", "Optional", 80) }}
+    <div class="form-grid-full">
+      {{ text_field(form_values, errors, "email", "Email address", "Used to identify this recipient.", 254, true, "email") }}
+    </div>
+    <div class="form-grid-full">
+      {{ text_field(form_values, errors, "company", "Company", "Optional", 120) }}
+    </div>
+    <div class="form-field form-grid-full{% if errors.get('is_active') %} has-error{% endif %}">
+      <label for="recipient-is-active">Status</label>
+      {% set active_value = form_values.get("is_active", "active")|string|lower %}
+      <select id="recipient-is-active" name="is_active" aria-invalid="{{ 'true' if errors.get('is_active') else 'false' }}">
+        <option value="active"{% if active_value in ["active", "true", "1", "on"] %} selected{% endif %}>Active</option>
+        <option value="inactive"{% if active_value in ["inactive", "false", "0", "off"] %} selected{% endif %}>Inactive</option>
+      </select>
+      {% if errors.get("is_active") %}<small class="field-error">{{ errors.get("is_active") }}</small>{% else %}<small class="field-hint">Inactive recipients are excluded from future campaign audiences.</small>{% endif %}
+    </div>
+  </div>
+  <div class="form-actions">
+    <a class="button button--secondary" href="{{ url_for('recipients.index') }}">Cancel</a>
+    <button class="button button--primary" type="submit">{{ submit_label }}</button>
+  </div>
+{% endmacro %}
